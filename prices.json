@@ -1,0 +1,18 @@
+{
+    "foundation": {
+        "material": 118,
+        "labor": 0.0
+    },
+    "wall": {
+        "material": 13654,
+        "labor": 0.0
+    },
+    "roof": {
+        "material": 2357,
+        "labor": 0.0
+    },
+    "finish": {
+        "material": 6581,
+        "labor": 0.0
+    }
+}
