@@ -1,10 +1,7 @@
-import cloudscraper
-from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 import json
 import re
-import time
 
-# Очищенные URL категорий Лемана ПРО (без лишних параметров)
 CATEGORIES = {
     "wall": "https://lemanapro.ru/catalogue/bloki-stroitelnye/gazobetonnyy-blok/",
     "roof": "https://lemanapro.ru/catalogue/metallocherepica/",
@@ -14,75 +11,34 @@ CATEGORIES = {
     "paint": "https://lemanapro.ru/catalogue/kraski/"
 }
 
-def get_prices_from_category(url):
-    """Заходит на страницу категории и собирает цены, обходя защиту"""
-    
-    # Создаем скрейпер с реалистичными заголовками
-    scraper = cloudscraper.create_scraper(
-        browser={
-            'browser': 'chrome',
-            'platform': 'windows',
-            'mobile': False
-        },
-        delay=3  # Пауза между запросами, чтобы не спамить
-    )
-    
-    # Добавляем дополнительные заголовки, как у настоящего браузера
-    headers = {
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Cache-Control': 'max-age=0'
-    }
-    
+def get_prices_from_category(page, url):
+    """Заходит на страницу и собирает цены через настоящий браузер"""
     try:
-        response = scraper.get(url, headers=headers, timeout=20)
-        
-        if response.status_code == 403:
-            print(f"   ⛔ Доступ запрещён (403). Попробуем упростить URL...")
-            # Пробуем без www и с https
-            return None
-            
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
+        page.goto(url, timeout=30000, wait_until="networkidle")
+        page.wait_for_timeout(3000)  # Ждём загрузки JavaScript
         
         prices = []
         
-        # Метод 1: Ищем по data-testid="price-integer" (стабильный селектор)
-        price_elements = soup.find_all(attrs={"data-testid": "price-integer"})
+        # Ищем элементы с ценами
+        price_elements = page.query_selector_all('[data-testid="price-integer"]')
+        
         for el in price_elements:
-            price_text = el.get_text(strip=True)
-            clean_price = re.sub(r'[^\d]', '', price_text)
-            if clean_price and len(clean_price) > 0:
-                prices.append(float(clean_price))
+            text = el.inner_text()
+            clean = re.sub(r'[^\d]', '', text)
+            if clean:
+                prices.append(float(clean))
         
-        # Метод 2: Ищем цены с символом рубля (резервный)
+        # Если не нашли, ищем по тексту с рублём
         if len(prices) == 0:
-            price_texts = soup.find_all(string=re.compile(r'\d+\s*₽'))
-            for text in price_texts:
-                clean = re.sub(r'[^\d]', '', str(text).strip())
-                if clean and len(clean) > 0:
+            all_text = page.inner_text("body")
+            matches = re.findall(r'(\d{1,3}(?:\s\d{3})*)\s*₽', all_text)
+            for match in matches[:10]:
+                clean = re.sub(r'[^\d]', '', match)
+                if clean:
                     prices.append(float(clean))
         
-        # Метод 3: Ищем любые числовые значения в элементах с классом price
-        if len(prices) == 0:
-            price_classes = soup.find_all(class_=re.compile(r'[Pp]rice'))
-            for el in price_classes:
-                text = el.get_text(strip=True)
-                clean = re.sub(r'[^\d]', '', text)
-                if clean and len(clean) > 0:
-                    prices.append(float(clean))
-        
-        # Берём среднее из первых 5-8 цен (чтобы избежать акционных)
         if len(prices) >= 3:
-            sample = prices[:8]
-            avg = sum(sample) / len(sample)
-            return avg
+            return sum(prices[:5]) / min(5, len(prices))
         elif len(prices) > 0:
             return prices[0]
             
@@ -92,12 +48,9 @@ def get_prices_from_category(url):
     return None
 
 def main():
-    print("🔄 Начинаем обновление цен с Лемана ПРО...")
-    print("=" * 60)
-    print("💡 Используем cloudscraper для обхода защиты Cloudflare")
+    print("🔄 Начинаем обновление цен с Лемана ПРО (через браузер Playwright)...")
     print("=" * 60)
     
-    # Базовые цены-заглушки
     prices_data = {
         "foundation": {"material": 500.0, "labor": 0.0},
         "wall": {"material": 5500.0, "labor": 0.0},
@@ -107,37 +60,42 @@ def main():
         "paint": {"material": 400.0, "labor": 0.0}
     }
 
-    updated = False
-    success_count = 0
+    with sync_playwright() as p:
+        # Запускаем браузер в headless режиме (невидимый)
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(
+            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            viewport={'width': 1920, 'height': 1080}
+        )
+        page = context.new_page()
+        
+        updated = False
+        success_count = 0
+        
+        for key, url in CATEGORIES.items():
+            print(f"\n📂 Категория '{key}':")
+            avg_price = get_prices_from_category(page, url)
+            
+            if avg_price is not None:
+                avg_price = round(avg_price)
+                prices_data[key]["material"] = avg_price
+                updated = True
+                success_count += 1
+                print(f"   ✅ Цена: {avg_price} ₽")
+            else:
+                print(f"   ⚠️ Не удалось получить")
+        
+        browser.close()
     
-    for key, url in CATEGORIES.items():
-        print(f"\n📂 Категория '{key}':")
-        print(f"   URL: {url}")
-        
-        avg_price = get_prices_from_category(url)
-        
-        if avg_price is not None:
-            avg_price = round(avg_price)
-            old_price = prices_data[key]["material"]
-            prices_data[key]["material"] = avg_price
-            updated = True
-            success_count += 1
-            print(f"   ✅ Успех! Средняя цена: {avg_price} ₽")
-        else:
-            print(f"   ⚠️ Не удалось получить цены")
-
     print("\n" + "=" * 60)
-    print(f"📊 Итого: успешно обновлено {success_count} из {len(CATEGORIES)} категорий")
+    print(f"📊 Итого: {success_count}/{len(CATEGORIES)} категорий")
     
     if updated:
         with open("prices.json", "w", encoding="utf-8") as f:
             json.dump(prices_data, f, indent=4, ensure_ascii=False)
-        print("✅ Файл prices.json создан/обновлён!")
-        print("📄 Содержимое файла:")
-        print(json.dumps(prices_data, indent=2, ensure_ascii=False))
+        print("✅ prices.json создан!")
     else:
-        print(" Ни одна категория не обновилась.")
-        print("💡 Попробуйте найти API сайта через F12 → Network")
+        print("⚠️ Ни одна категория не обновилась")
 
 if __name__ == "__main__":
     main()
