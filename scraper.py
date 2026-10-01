@@ -2,6 +2,7 @@ from playwright.sync_api import sync_playwright
 import json
 import re
 
+# Ссылки на категории
 CATEGORIES = {
     "wall": "https://lemanapro.ru/catalogue/bloki-stroitelnye/gazobetonnyy-blok/",
     "roof": "https://lemanapro.ru/catalogue/metallocherepica/",
@@ -12,14 +13,14 @@ CATEGORIES = {
 }
 
 def get_prices_from_category(page, url):
-    """Заходит на страницу и собирает цены через настоящий браузер"""
     try:
+        # Переходим на страницу и ждем полной загрузки JavaScript
         page.goto(url, timeout=30000, wait_until="networkidle")
-        page.wait_for_timeout(3000)  # Ждём загрузки JavaScript
+        page.wait_for_timeout(3000)  # Дополнительная пауза для прогрузки цен
         
         prices = []
         
-        # Ищем элементы с ценами
+        # Ищем элементы с ценами по стабильному атрибуту
         price_elements = page.query_selector_all('[data-testid="price-integer"]')
         
         for el in price_elements:
@@ -28,17 +29,19 @@ def get_prices_from_category(page, url):
             if clean:
                 prices.append(float(clean))
         
-        # Если не нашли, ищем по тексту с рублём
+        # Если не нашли, ищем любой текст с рублем на странице
         if len(prices) == 0:
             all_text = page.inner_text("body")
             matches = re.findall(r'(\d{1,3}(?:\s\d{3})*)\s*₽', all_text)
-            for match in matches[:10]:
+            for match in matches[:15]: # Берем первые 15 найденных цен
                 clean = re.sub(r'[^\d]', '', match)
                 if clean:
                     prices.append(float(clean))
         
+        # Считаем среднее из первых 5 цен, чтобы избежать акционных "от"
         if len(prices) >= 3:
-            return sum(prices[:5]) / min(5, len(prices))
+            sample = prices[:5]
+            return sum(sample) / len(sample)
         elif len(prices) > 0:
             return prices[0]
             
@@ -48,8 +51,8 @@ def get_prices_from_category(page, url):
     return None
 
 def main():
-    print("🔄 Начинаем обновление цен с Лемана ПРО (через браузер Playwright)...")
-    print("=" * 60)
+    print("🔄 Начинаем обновление цен (через невидимый браузер Playwright)...")
+    print("=" * 65)
     
     prices_data = {
         "foundation": {"material": 500.0, "labor": 0.0},
@@ -60,8 +63,8 @@ def main():
         "paint": {"material": 400.0, "labor": 0.0}
     }
 
+    # Запускаем невидимый браузер Chrome
     with sync_playwright() as p:
-        # Запускаем браузер в headless режиме (невидимый)
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(
             user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -81,21 +84,21 @@ def main():
                 prices_data[key]["material"] = avg_price
                 updated = True
                 success_count += 1
-                print(f"   ✅ Цена: {avg_price} ₽")
+                print(f"   ✅ Успех! Средняя цена: {avg_price} ₽")
             else:
-                print(f"   ⚠️ Не удалось получить")
+                print(f"   ⚠️ Не удалось получить цены")
         
         browser.close()
     
-    print("\n" + "=" * 60)
-    print(f"📊 Итого: {success_count}/{len(CATEGORIES)} категорий")
+    print("\n" + "=" * 65)
+    print(f"📊 Итого: успешно {success_count} из {len(CATEGORIES)}")
     
     if updated:
         with open("prices.json", "w", encoding="utf-8") as f:
             json.dump(prices_data, f, indent=4, ensure_ascii=False)
-        print("✅ prices.json создан!")
+        print("✅ Файл prices.json успешно создан!")
     else:
-        print("⚠️ Ни одна категория не обновилась")
+        print("⚠️ Ни одна категория не обновилась. Файл не создан.")
 
 if __name__ == "__main__":
     main()
