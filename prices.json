@@ -20,11 +20,11 @@
         "labor": 0.0
     },
     "rebar8": {
-        "material": 118,
+        "material": 88,
         "labor": 0.0
     },
     "concrete": {
-        "material": 206050,
+        "material": 5600,
         "labor": 0.0
     },
     "glue": {
@@ -40,7 +40,7 @@
         "labor": 0.0
     },
     "laminate": {
-        "material": 7435,
+        "material": 2974,
         "labor": 0.0
     },
     "tile": {
