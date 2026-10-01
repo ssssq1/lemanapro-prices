@@ -4,8 +4,8 @@
                 avg_price = avg_price / 2.5   # Делим на объем поддона, чтобы получить цену за 1 м³
             elif key == "roof":
                 avg_price = avg_price / 2.5   # Делим на площадь листа, чтобы получить цену за 1 м²
-            elif key == "foundation":
-                avg_price = avg_price * 11.7  # Умножаем цену п.м. на длину хлыста (11.7м)
+           elif key == "foundation":
+    avg_price = avg_price * 11.7  # Умножаем цену п.м. на длину хлыста
             elif key == "finish":
                 avg_price = avg_price / 10.5  # Делим на площадь рулона, чтобы получить цену за 1 м²
             # =============================================
