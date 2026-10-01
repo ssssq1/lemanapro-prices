@@ -72,10 +72,10 @@ def get_avg_price(url):
         return None
 
 def main():
-    print(" Начинаем обновление цен с vashdom24.ru...")
+    print("🔄 Начинаем обновление цен с vashdom24.ru...")
     print("=" * 50)
     
-    # Базовые значения
+    # Базовые значения (заглушки, если парсинг не сработает)
     prices_data = {
         "foundation": {"material": 500.0, "labor": 0.0},
         "wall": {"material": 5500.0, "labor": 0.0},
@@ -83,7 +83,7 @@ def main():
         "finish": {"material": 1200.0, "labor": 0.0},
         "rebar12": {"material": 118.0, "labor": 0.0},
         "rebar8": {"material": 65.0, "labor": 0.0},
-        "concrete": {"material": 4500.0, "labor": 0.0},
+        "concrete": {"material": 5600.0, "labor": 0.0},
         "glue": {"material": 350.0, "labor": 0.0},
         "mortar": {"material": 280.0, "labor": 0.0},
         "wallpaper": {"material": 1200.0, "labor": 0.0},
@@ -106,39 +106,46 @@ def main():
         avg_price = get_avg_price(url)
         
         if avg_price is not None:
-            # Поправки на единицы измерения
+            # === ПОПРАВКИ НА ЕДИНИЦЫ ИЗМЕРЕНИЯ ===
             if key == "wall":
-                avg_price = avg_price / 2.5
+                avg_price = avg_price / 2.5           # цена за поддон → за м³
             elif key == "roof":
-                avg_price = avg_price / 2.5
+                avg_price = avg_price / 2.5           # цена за лист → за м²
             elif key == "foundation":
-                avg_price = avg_price * 11.7
-            elif key == "finish":
-                avg_price = avg_price / 10.5
-            elif key == "wallpaper":
-                avg_price = avg_price / 10.5
+                avg_price = avg_price * 11.7          # цена за пог.м → за хлыст 11.7м
+            elif key == "rebar12":
+                avg_price = avg_price                 # уже за пог.м (оставляем)
+            elif key == "rebar8":
+                avg_price = avg_price                 # уже за пог.м
+            elif key == "concrete":
+                avg_price = avg_price * 4             # цена за мешок/упаковку → за м³
             elif key == "glue":
-                avg_price = avg_price  # уже за мешок
+                avg_price = avg_price                 # уже за мешок 25кг
             elif key == "mortar":
-                avg_price = avg_price * 20  # если за мешок 25кг, переводим в м³
-            elif key == "tile":
-                avg_price = avg_price  # уже за м²
+                avg_price = avg_price * 20            # за мешок 25кг → за м³
+            elif key == "finish":
+                avg_price = avg_price / 10.5          # цена за рулон → за м²
+            elif key == "wallpaper":
+                avg_price = avg_price / 10.5          # цена за рулон → за м²
             elif key == "laminate":
-                avg_price = avg_price  # уже за м²
+                avg_price = avg_price                 # уже за м²
+            elif key == "tile":
+                avg_price = avg_price                 # уже за м²
             elif key == "stretchCeiling":
-                avg_price = avg_price  # уже за м²
+                avg_price = avg_price                 # уже за м²
             elif key == "cable":
-                avg_price = avg_price  # уже за пог.м
+                avg_price = avg_price                 # уже за пог.м
             elif key == "socket":
-                avg_price = avg_price  # уже за шт
+                avg_price = avg_price                 # уже за шт
             elif key == "pipe":
-                avg_price = avg_price  # уже за пог.м
+                avg_price = avg_price                 # уже за пог.м
             elif key == "faucet":
-                avg_price = avg_price  # уже за шт
+                avg_price = avg_price                 # уже за шт
             elif key == "interiorDoor":
-                avg_price = avg_price  # уже за шт
+                avg_price = avg_price                 # уже за шт
             elif key == "entranceDoor":
-                avg_price = avg_price  # уже за шт
+                avg_price = avg_price                 # уже за шт
+            # =============================================
             
             avg_price = round(avg_price)
             prices_data[key]["material"] = avg_price
@@ -146,15 +153,17 @@ def main():
             success_count += 1
             print(f"   ✅ Успех! Базовая цена: {avg_price} ₽")
         else:
-            print(f"   ⚠️ Цены не найдены")
+            print(f"   ⚠️ Цены не найдены (оставлено значение-заглушка)")
 
     print("\n" + "=" * 50)
-    print(f" Итого: успешно {success_count} из {len(CATEGORIES)}")
+    print(f"📊 Итого: успешно {success_count} из {len(CATEGORIES)}")
     
     if updated:
         with open("prices.json", "w", encoding="utf-8") as f:
             json.dump(prices_data, f, indent=4, ensure_ascii=False)
         print("✅ Файл prices.json успешно создан/обновлён!")
+        print("\n📄 Содержимое prices.json:")
+        print(json.dumps(prices_data, indent=2, ensure_ascii=False))
     else:
         print("⚠️ Ни одна категория не обновилась.")
 
