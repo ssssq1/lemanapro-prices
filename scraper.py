@@ -1,10 +1,10 @@
-import requests
+import cloudscraper
 from bs4 import BeautifulSoup
 import json
 import re
+import time
 
 # Ссылки на категории Лемана ПРО
-# Добавьте сюда любые нужные вам категории
 CATEGORIES = {
     "wall": "https://lemanapro.ru/catalog/stroitelstvo-i-remont/stroitelnye-materialy/stenovye-bloki/gazobeton/",
     "roof": "https://lemanapro.ru/catalog/stroitelstvo-i-remont/krovlya-i-fasad/krovlya/metallocherepitsa/",
@@ -15,45 +15,63 @@ CATEGORIES = {
 }
 
 def get_prices_from_category(url):
-    """Заходит на страницу категории и собирает цены первых товаров"""
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept-Language": "ru-RU,ru;q=0.9"
-    }
+    """Заходит на страницу категории и собирает цены первых товаров, обходя защиту"""
+    
+    # Создаем скрейпер, который притворяется обычным браузером Chrome
+    scraper = cloudscraper.create_scraper(
+        browser={
+            'browser': 'chrome',
+            'platform': 'windows',
+            'mobile': False
+        },
+        delay=2 # Небольшая задержка, чтобы не спамить запросами
+    )
+    
     try:
-        response = requests.get(url, headers=headers, timeout=15)
+        response = scraper.get(url, timeout=15)
+        
+        # Если всё равно 403, выводим для отладки
+        if response.status_code == 403:
+            print(f"   ⛔ Доступ запрещён (403). Защита сайта слишком строгая.")
+            return None
+            
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # Ищем все элементы с data-testid="price-integer" - это стабильный селектор Лемана ПРО
-        price_elements = soup.find_all(attrs={"data-testid": "price-integer"})
-        
         prices = []
-        for el in price_elements:
-            # Получаем текст цены (например: "7 687" или "7&nbsp;687")
+        
+        # Способ 1: Ищем по стабильному атрибуту data-testid
+        price_elements_id = soup.find_all(attrs={"data-testid": "price-integer"})
+        for el in price_elements_id:
             price_text = el.get_text(strip=True)
-            # Убираем всё кроме цифр
             clean_price = re.sub(r'[^\d]', '', price_text)
             if clean_price:
                 prices.append(float(clean_price))
+                
+        # Способ 2: Если первый не сработал, ищем по символу рубля (резервный вариант)
+        if len(prices) == 0:
+            price_elements_text = soup.find_all(string=re.compile(r'\d+\s*₽'))
+            for el in price_elements_text:
+                clean_price = re.sub(r'[^\d]', '', str(el).strip())
+                if clean_price:
+                    prices.append(float(clean_price))
         
-        # Берём цены первых 6 товаров и считаем среднее
+        # Берём цены первых 5 товаров и считаем среднее
         if len(prices) >= 3:
-            sample = prices[:6]
+            sample = prices[:5]
             return sum(sample) / len(sample)
         elif len(prices) > 0:
             return prices[0]
             
     except Exception as e:
-        print(f"❌ Ошибка при парсинге {url}: {e}")
+        print(f"   ❌ Ошибка: {e}")
     
     return None
 
 def main():
-    print("🔄 Начинаем обновление цен с Лемана ПРО...")
-    print("=" * 50)
+    print("🔄 Начинаем обновление цен с Лемана ПРО (с обходом защиты)...")
+    print("=" * 60)
     
-    # Базовые цены-заглушки (будут заменены при успешном парсинге)
     prices_data = {
         "foundation": {"material": 500.0, "labor": 0.0},
         "wall": {"material": 5500.0, "labor": 0.0},
@@ -65,7 +83,7 @@ def main():
 
     updated = False
     for key, url in CATEGORIES.items():
-        print(f"\n Категория '{key}': {url}")
+        print(f"\n📂 Категория '{key}':")
         avg_price = get_prices_from_category(url)
         
         if avg_price is not None:
@@ -73,19 +91,18 @@ def main():
             old_price = prices_data[key]["material"]
             prices_data[key]["material"] = avg_price
             updated = True
-            print(f"   ✅ Средняя цена: {avg_price} ₽ (было: {old_price} ₽)")
+            print(f"   ✅ Успех! Средняя цена: {avg_price} ₽ (было: {old_price} ₽)")
         else:
-            print(f"   ⚠️ Не удалось получить цены, оставлено старое значение")
+            print(f"   ⚠️ Не удалось получить цены.")
 
-    print("\n" + "=" * 50)
+    print("\n" + "=" * 60)
     
     if updated:
-        # Сохраняем в JSON
         with open("prices.json", "w", encoding="utf-8") as f:
             json.dump(prices_data, f, indent=4, ensure_ascii=False)
-        print("✅ Файл prices.json успешно обновлён!")
+        print("✅ Файл prices.json успешно создан/обновлён!")
     else:
-        print("⚠️ Ни одна категория не обновилась.")
+        print("⚠️ Ни одна категория не обновилась. Файл prices.json не создан.")
 
 if __name__ == "__main__":
     main()
