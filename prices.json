@@ -1,18 +1,78 @@
 {
     "foundation": {
-        "material": 118,
+        "material": 1381,
         "labor": 0.0
     },
     "wall": {
-        "material": 13654,
+        "material": 5462,
         "labor": 0.0
     },
     "roof": {
-        "material": 2357,
+        "material": 943,
         "labor": 0.0
     },
     "finish": {
-        "material": 6581,
+        "material": 627,
+        "labor": 0.0
+    },
+    "rebar12": {
+        "material": 118,
+        "labor": 0.0
+    },
+    "rebar8": {
+        "material": 118,
+        "labor": 0.0
+    },
+    "concrete": {
+        "material": 51512,
+        "labor": 0.0
+    },
+    "glue": {
+        "material": 350.0,
+        "labor": 0.0
+    },
+    "mortar": {
+        "material": 280.0,
+        "labor": 0.0
+    },
+    "wallpaper": {
+        "material": 627,
+        "labor": 0.0
+    },
+    "laminate": {
+        "material": 7435,
+        "labor": 0.0
+    },
+    "tile": {
+        "material": 582,
+        "labor": 0.0
+    },
+    "stretchCeiling": {
+        "material": 600.0,
+        "labor": 0.0
+    },
+    "cable": {
+        "material": 60.0,
+        "labor": 0.0
+    },
+    "socket": {
+        "material": 250.0,
+        "labor": 0.0
+    },
+    "pipe": {
+        "material": 120.0,
+        "labor": 0.0
+    },
+    "faucet": {
+        "material": 1800.0,
+        "labor": 0.0
+    },
+    "interiorDoor": {
+        "material": 9000.0,
+        "labor": 0.0
+    },
+    "entranceDoor": {
+        "material": 30000.0,
         "labor": 0.0
     }
 }
