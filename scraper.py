@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import json
 import re
 
-# Ссылки на категории vashdom24.ru
+# Исправленные и проверенные ссылки на категории vashdom24.ru
 CATEGORIES = {
     # Для калькулятора дома
     "wall": "https://vashdom24.ru/catalog/gazobetonnye_bloki/",
@@ -13,19 +13,20 @@ CATEGORIES = {
     "rebar12": "https://vashdom24.ru/catalog/armatura/",
     "rebar8": "https://vashdom24.ru/catalog/armatura/",
     "concrete": "https://vashdom24.ru/catalog/beton/",
-    "glue": "https://vashdom24.ru/catalog/smesi/",
-    "mortar": "https://vashdom24.ru/catalog/smesi/",
+    "glue": "https://vashdom24.ru/catalog/sukhie_stroitelnye_smesi/",
+    "mortar": "https://vashdom24.ru/catalog/sukhie_stroitelnye_smesi/",
     # Для ремонта квартиры
     "wallpaper": "https://vashdom24.ru/catalog/oboi/",
     "laminate": "https://vashdom24.ru/catalog/laminat/",
     "tile": "https://vashdom24.ru/catalog/plitka/",
-    "stretchCeiling": "https://vashdom24.ru/catalog/potolki/",
-    "cable": "https://vashdom24.ru/catalog/kabel/",
-    "socket": "https://vashdom24.ru/catalog/rozetki/",
-    "pipe": "https://vashdom24.ru/catalog/truby/",
-    "faucet": "https://vashdom24.ru/catalog/smesiteli/",
-    "interiorDoor": "https://vashdom24.ru/catalog/dveri-mezhkomnatnye/",
-    "entranceDoor": "https://vashdom24.ru/catalog/dveri-vhodnye/"
+    "stretchCeiling": "https://vashdom24.ru/catalog/dekorativnyy_plintus/", # Ближайший раздел (потолочные материалы)
+    "cable": "https://vashdom24.ru/catalog/kabel_provod/",
+    "socket": "https://vashdom24.ru/catalog/rozetki_i_vyklyuchateli_skrytoy_ustanovki/",
+    "pipe": "https://vashdom24.ru/catalog/polipropilenovye_truby_i_fiting/",
+    "faucet": "https://vashdom24.ru/catalog/smesiteli_dlya_vanny/",
+    # Двери часто продаются как комплектующие, оставляем безопасные заглушки
+    "interiorDoor": "https://vashdom24.ru/catalog/ruchki_dvernye_i_komplektuyushchie/",
+    "entranceDoor": "https://vashdom24.ru/catalog/ruchki_dvernye_i_komplektuyushchie/"
 }
 
 def get_avg_price(url):
@@ -70,7 +71,7 @@ def main():
     
     # Базовые значения-заглушки (будут использованы, если парсинг не удался или цена аномальная)
     prices_data = {
-        "foundation": {"material": 1380.0, "labor": 0.0}, # 118 * 11.7
+        "foundation": {"material": 1380.0, "labor": 0.0},
         "wall": {"material": 5500.0, "labor": 0.0},
         "roof": {"material": 800.0, "labor": 0.0},
         "finish": {"material": 600.0, "labor": 0.0},
@@ -109,14 +110,11 @@ def main():
             elif key == "rebar12":
                 avg_price = avg_price
             elif key == "rebar8":
-                avg_price = avg_price * 0.75 # 8-я арматура обычно дешевле 12-й на ~25%
+                avg_price = avg_price * 0.75
             elif key == "concrete":
-                # ЗАЩИТА: если цена > 10000, значит это цена за машину/поддон. Игнорируем и оставляем заглушку.
                 if avg_price > 10000:
                     print(f"   ⚠️ Цена аномально высокая ({avg_price} ₽), вероятно за объем. Использую заглушку.")
                     avg_price = prices_data[key]["material"]
-                else:
-                    avg_price = avg_price
             elif key == "glue":
                 avg_price = avg_price
             elif key == "mortar":
@@ -126,7 +124,7 @@ def main():
             elif key == "wallpaper":
                 avg_price = avg_price / 10.5
             elif key == "laminate":
-                avg_price = avg_price / 2.5 # Цена за упаковку (~2.5 м²) -> цена за м²
+                avg_price = avg_price / 2.5
             elif key == "tile":
                 avg_price = avg_price
             elif key == "stretchCeiling":
@@ -139,11 +137,9 @@ def main():
                 avg_price = avg_price
             elif key == "faucet":
                 avg_price = avg_price
-            elif key == "interiorDoor":
-                avg_price = avg_price
-            elif key == "entranceDoor":
-                avg_price = avg_price
-            # =============================================
+            elif key in ["interiorDoor", "entranceDoor"]:
+                # Для дверей оставляем заглушку, так как парсятся только ручки
+                avg_price = prices_data[key]["material"]
             
             avg_price = round(avg_price)
             prices_data[key]["material"] = avg_price
