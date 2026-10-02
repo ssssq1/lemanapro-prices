@@ -28,11 +28,11 @@
         "labor": 0.0
     },
     "glue": {
-        "material": 350.0,
+        "material": 1121,
         "labor": 0.0
     },
     "mortar": {
-        "material": 280.0,
+        "material": 22424,
         "labor": 0.0
     },
     "wallpaper": {
@@ -48,31 +48,31 @@
         "labor": 0.0
     },
     "stretchCeiling": {
-        "material": 600.0,
+        "material": 207,
         "labor": 0.0
     },
     "cable": {
-        "material": 60.0,
+        "material": 591,
         "labor": 0.0
     },
     "socket": {
-        "material": 250.0,
+        "material": 558,
         "labor": 0.0
     },
     "pipe": {
-        "material": 120.0,
+        "material": 3639,
         "labor": 0.0
     },
     "faucet": {
-        "material": 1800.0,
+        "material": 11439,
         "labor": 0.0
     },
     "interiorDoor": {
-        "material": 9000.0,
+        "material": 9000,
         "labor": 0.0
     },
     "entranceDoor": {
-        "material": 30000.0,
+        "material": 30000,
         "labor": 0.0
     }
 }
