@@ -1,7 +1,7 @@
 {
     "foundation": {
-        "material": 1381,
-        "labor": 0.0
+        "material": 6500.0,
+        "labor": 6500.0
     },
     "wall": {
         "material": 5462,
