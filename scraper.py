@@ -4,11 +4,11 @@ import json
 import re
 
 # Исправленные и проверенные ссылки на категории vashdom24.ru
+# ВАЖНО: "foundation" УБРАН, чтобы парсер не портил цены на бетон/фундамент
 CATEGORIES = {
     # Для калькулятора дома
     "wall": "https://vashdom24.ru/catalog/gazobetonnye_bloki/",
     "roof": "https://vashdom24.ru/catalog/metallocherepitsa/",
-    "foundation": "https://vashdom24.ru/catalog/armatura/",
     "finish": "https://vashdom24.ru/catalog/oboi/",
     "rebar12": "https://vashdom24.ru/catalog/armatura/",
     "rebar8": "https://vashdom24.ru/catalog/armatura/",
@@ -19,34 +19,39 @@ CATEGORIES = {
     "wallpaper": "https://vashdom24.ru/catalog/oboi/",
     "laminate": "https://vashdom24.ru/catalog/laminat/",
     "tile": "https://vashdom24.ru/catalog/plitka/",
-    "stretchCeiling": "https://vashdom24.ru/catalog/dekorativnyy_plintus/", # Ближайший раздел (потолочные материалы)
+    "stretchCeiling": "https://vashdom24.ru/catalog/dekorativnyy_plintus/",
     "cable": "https://vashdom24.ru/catalog/kabel_provod/",
     "socket": "https://vashdom24.ru/catalog/rozetki_i_vyklyuchateli_skrytoy_ustanovki/",
     "pipe": "https://vashdom24.ru/catalog/polipropilenovye_truby_i_fiting/",
     "faucet": "https://vashdom24.ru/catalog/smesiteli_dlya_vanny/",
-    # Двери часто продаются как комплектующие, оставляем безопасные заглушки
+    # Двери — оставляем заглушки (парсятся только ручки)
     "interiorDoor": "https://vashdom24.ru/catalog/ruchki_dvernye_i_komplektuyushchie/",
     "entranceDoor": "https://vashdom24.ru/catalog/ruchki_dvernye_i_komplektuyushchie/"
 }
 
 def get_avg_price(url):
+    """Пытается получить среднюю цену со страницы категории"""
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'ru-RU,ru;q=0.9'
     }
+    
     try:
         response = requests.get(url, headers=headers, timeout=15)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
         
         prices = []
+        
+        # Способ 1: Ищем элементы с классами price/cost/sum
         for el in soup.find_all(class_=re.compile(r'price|cost|sum|tovar-price', re.IGNORECASE)):
             text = el.get_text(strip=True)
             clean = re.sub(r'[^\d]', '', text)
             if clean and 10 < float(clean) < 100000:
                 prices.append(float(clean))
                 
+        # Способ 2: Ищем паттерн "число + ₽/руб"
         if len(prices) < 3:
             text_content = soup.get_text()
             matches = re.findall(r'(\d{1,3}(?:\s\d{3})*)\s*(?:₽|руб\.|руб)', text_content, re.IGNORECASE)
@@ -60,7 +65,9 @@ def get_avg_price(url):
             return sum(sample) / len(sample)
         elif len(prices) > 0:
             return prices[0]
+            
         return None
+        
     except Exception as e:
         print(f"   ❌ Ошибка запроса: {str(e)[:80]}")
         return None
@@ -69,9 +76,9 @@ def main():
     print("🔄 Начинаем обновление цен с vashdom24.ru...")
     print("=" * 50)
     
-    # Базовые значения-заглушки (будут использованы, если парсинг не удался или цена аномальная)
+    # Базовые значения-заглушки (используются если парсинг не удался или цена аномальная)
     prices_data = {
-        "foundation": {"material": 1380.0, "labor": 0.0},
+        "foundation": {"material": 6500.0, "labor": 6500.0},  # ← ИСПРАВЛЕНО: было 1380
         "wall": {"material": 5500.0, "labor": 0.0},
         "roof": {"material": 800.0, "labor": 0.0},
         "finish": {"material": 600.0, "labor": 0.0},
@@ -102,44 +109,48 @@ def main():
         if avg_price is not None:
             # === УМНЫЕ ПОПРАВКИ НА ЕДИНИЦЫ ИЗМЕРЕНИЯ ===
             if key == "wall":
-                avg_price = avg_price / 2.5
+                avg_price = avg_price / 2.5           # цена за поддон → за м³
             elif key == "roof":
-                avg_price = avg_price / 2.5
-            elif key == "foundation":
-                avg_price = avg_price * 11.7
+                avg_price = avg_price / 2.5           # цена за лист → за м²
             elif key == "rebar12":
-                avg_price = avg_price
+                avg_price = avg_price                 # уже за пог.м
             elif key == "rebar8":
-                avg_price = avg_price * 0.75
+                avg_price = avg_price * 0.75          # 8-я арматура дешевле на ~25%
             elif key == "concrete":
-                if avg_price > 10000:
-                    print(f"   ⚠️ Цена аномально высокая ({avg_price} ₽), вероятно за объем. Использую заглушку.")
-                    avg_price = prices_data[key]["material"]
+                # ЖЁСТКАЯ ЗАЩИТА: бетон не может стоить меньше 5600 ₽/м³
+                if avg_price < 5600:
+                    print(f"   ️ Цена бетона слишком низкая ({avg_price} ₽), использую минимум 5600 ₽.")
+                    avg_price = 5600.0
+                elif avg_price > 10000:
+                    print(f"   ⚠️ Цена аномально высокая ({avg_price} ₽), вероятно за машину. Использую 5600 ₽.")
+                    avg_price = 5600.0
+                # Иначе оставляем как есть (если в диапазоне 5600-10000)
             elif key == "glue":
-                avg_price = avg_price
+                avg_price = avg_price                 # уже за мешок 25кг
             elif key == "mortar":
-                avg_price = avg_price * 20
+                avg_price = avg_price * 20            # за мешок → за м³
             elif key == "finish":
-                avg_price = avg_price / 10.5
+                avg_price = avg_price / 10.5          # цена за рулон → за м²
             elif key == "wallpaper":
-                avg_price = avg_price / 10.5
+                avg_price = avg_price / 10.5          # цена за рулон → за м²
             elif key == "laminate":
-                avg_price = avg_price / 2.5
+                avg_price = avg_price / 2.5           # цена за упаковку (~2.5 м²) → за м²
             elif key == "tile":
-                avg_price = avg_price
+                avg_price = avg_price                 # уже за м²
             elif key == "stretchCeiling":
-                avg_price = avg_price
+                avg_price = avg_price                 # уже за м²
             elif key == "cable":
-                avg_price = avg_price
+                avg_price = avg_price                 # уже за пог.м
             elif key == "socket":
-                avg_price = avg_price
+                avg_price = avg_price                 # уже за шт
             elif key == "pipe":
-                avg_price = avg_price
+                avg_price = avg_price                 # уже за пог.м
             elif key == "faucet":
-                avg_price = avg_price
+                avg_price = avg_price                 # уже за шт
             elif key in ["interiorDoor", "entranceDoor"]:
-                # Для дверей оставляем заглушку, так как парсятся только ручки
+                # Для дверей оставляем заглушку (парсятся только ручки)
                 avg_price = prices_data[key]["material"]
+            # =============================================
             
             avg_price = round(avg_price)
             prices_data[key]["material"] = avg_price
@@ -156,6 +167,8 @@ def main():
         with open("prices.json", "w", encoding="utf-8") as f:
             json.dump(prices_data, f, indent=4, ensure_ascii=False)
         print("✅ Файл prices.json успешно создан/обновлён!")
+        print("\n📄 Содержимое prices.json:")
+        print(json.dumps(prices_data, indent=2, ensure_ascii=False))
     else:
         print("⚠️ Ни одна категория не обновилась.")
 
