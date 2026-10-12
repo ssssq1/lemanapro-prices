@@ -16,11 +16,11 @@
         "labor": 0.0
     },
     "rebar12": {
-        "material": 118,
+        "material": 175,
         "labor": 0.0
     },
     "rebar8": {
-        "material": 88,
+        "material": 132,
         "labor": 0.0
     },
     "concrete": {
