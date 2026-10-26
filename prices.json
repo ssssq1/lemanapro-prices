@@ -16,11 +16,11 @@
         "labor": 0.0
     },
     "rebar12": {
-        "material": 175,
+        "material": 85,
         "labor": 0.0
     },
     "rebar8": {
-        "material": 132,
+        "material": 64,
         "labor": 0.0
     },
     "concrete": {
@@ -52,7 +52,7 @@
         "labor": 0.0
     },
     "cable": {
-        "material": 591,
+        "material": 516,
         "labor": 0.0
     },
     "socket": {
